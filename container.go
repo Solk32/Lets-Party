@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
+	"log"
 	"net/http"
 	"partyinvites/db"
 )
@@ -25,61 +25,49 @@ func (c *Container) welcomeHandler(writer http.ResponseWriter, request *http.Req
 	templates["welcome"].Execute(writer, nil)
 }
 
-//func (c *Container) listHandler(writer http.ResponseWriter, request *http.Request) {
-//	templates["list"].Execute(writer, responses)
-//	//queryTrue := "SELECT id, name FROM guests WHERE userjoin = true"
-//	//var err error
-//	//_, err = c.DB.Exec(queryTrue)
-//	//if err != nil {
-//	//	panic(err)
-//	//}
-//	//
-//	//fmt.Println("Значение userjoin = true:")
-//	//rowsTrue, err := db.ConnectDB(queryTrue)
-//	//for rowsTrue.Next() {
-//	//	var id int
-//	//	var name string
-//	//	if err := rowsTrue.Scan(&id, &name); err != nil {
-//	//		fmt.Println("Ошибка при сканировании строки:", err)
-//	//		return
-//	//	}
-//	//	fmt.Printf("ID: %d, Name: %s\n", id, name)
-//	//}
-//}
+type Guest struct {
+	ID       int8
+	Name     string
+	Email    string
+	Phone    string
+	UserJoin bool
+}
+
+func (c *Container) getAttendingGuests() ([]Guest, error) {
+	query := "SELECT name, email, phone FROM guests WHERE userjoin = true"
+
+	var name string
+	err := c.DB.QueryRow("SELECT name FROM guests WHERE userjoin = true").Scan(&name)
+	log.Println(name)
+
+	rows, err := c.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var attendingGuests []Guest
+
+	for rows.Next() {
+		var guest Guest
+		if err := rows.Scan(&guest.ID, &guest.Name, &guest.Email, &guest.Phone, &guest.UserJoin); err != nil {
+			return nil, err
+		}
+		attendingGuests = append(attendingGuests, guest)
+	}
+
+	return attendingGuests, nil
+}
 
 func (c *Container) listHandler(writer http.ResponseWriter, request *http.Request) {
-	queryTrue := "SELECT name, email, phone FROM guests WHERE joinuser = true"
 
-	rowsTrue, err := c.DB.Query(queryTrue)
+	attendingGuests, err := c.getAttendingGuests()
 	if err != nil {
-		panic(err)
+		http.Error(writer, "Ошибка при получении данных из базы данных", http.StatusInternalServerError)
+		return
 	}
-	defer rowsTrue.Close()
-
-	var trueGuests []struct {
-		Name  string
-		Email string
-		Phone string
-	}
-
-	for rowsTrue.Next() {
-		var guest struct {
-			Name  string
-			Email string
-			Phone string
-		}
-		if err := rowsTrue.Scan(&guest.Name, &guest.Email, &guest.Phone); err != nil {
-			fmt.Println("Ошибка при сканировании строки:", err)
-			return
-		}
-		trueGuests = append(trueGuests, guest)
-	}
-
-	for _, guest := range trueGuests {
-		fmt.Printf("Name: %s, Email: %s, Phone: %s\n", guest.Name, guest.Email, guest.Phone)
-	}
-
-	templates["list"].Execute(writer, responses)
+	templates["list"].Execute(writer, attendingGuests)
+	//templates["list"].Execute(writer, responses)
 }
 
 func (c *Container) formHandler(writer http.ResponseWriter, request *http.Request) {
@@ -123,7 +111,7 @@ func (c *Container) formHandler(writer http.ResponseWriter, request *http.Reques
 }
 
 func (c *Container) CreateGuest(name string, email string, phone string, userjoin bool) {
-	sqlStatement := `INSERT INTO guests (name, email, phone, joinuser) 
+	sqlStatement := `INSERT INTO guests (name, email, phone, userjoin) 
 VALUES ($1, $2, $3, $4)`
 	var err error
 	_, err = c.DB.Exec(sqlStatement, name, email, phone, userjoin)
