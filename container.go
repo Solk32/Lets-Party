@@ -34,12 +34,7 @@ type Guest struct {
 }
 
 func (c *Container) getAttendingGuests() ([]Guest, error) {
-	query := "SELECT name, email, phone FROM guests WHERE userjoin = true"
-
-	var name string
-	err := c.DB.QueryRow("SELECT name FROM guests WHERE userjoin = true").Scan(&name)
-	log.Println(name)
-
+	query := "SELECT id, name, email, phone, userjoin FROM guests WHERE userjoin = true"
 	rows, err := c.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -66,7 +61,21 @@ func (c *Container) listHandler(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, "Ошибка при получении данных из базы данных", http.StatusInternalServerError)
 		return
 	}
-	templates["list"].Execute(writer, attendingGuests)
+	party := make([]*Party, 0, len(attendingGuests))
+	for _, s := range attendingGuests {
+		party = append(party, &Party{
+			Name:       s.Name,
+			Email:      s.Email,
+			Phone:      s.Phone,
+			WillAttend: s.UserJoin,
+		})
+	}
+
+	err = templates["list"].Execute(writer, party)
+	if err != nil {
+		log.Println(err)
+	}
+	//templates["list"].Execute(writer, party)
 	//templates["list"].Execute(writer, responses)
 }
 
