@@ -86,7 +86,9 @@ func (c *Container) formHandler(writer http.ResponseWriter, request *http.Reques
 		})
 	} else if request.Method == http.MethodPost {
 		request.ParseForm()
-		c.CreateGuest(request.Form["name"][0], request.Form["email"][0], request.Form["phone"][0], request.Form["willattend"][0] == "true")
+		if request.Form["name"][0] != "" && request.Form["email"][0] != "" && request.Form["phone"][0] != "" {
+			c.CreateGuest(request.Form["name"][0], request.Form["email"][0], request.Form["phone"][0], request.Form["willattend"][0] == "true")
+		}
 		responseData := Party{
 			Name:       request.Form["name"][0],
 			Email:      request.Form["email"][0],
