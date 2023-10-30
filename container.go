@@ -2,17 +2,20 @@ package main
 
 import (
 	"database/sql"
+	"html/template"
 	"log"
 	"net/http"
 	"partyinvites/db"
 )
 
 type Container struct {
-	DB *sql.DB
+	DB        *sql.DB
+	templates map[string]*template.Template
 }
 
-func NewContainer() *Container {
+func NewContainer(templates map[string]*template.Template) *Container {
 	c := new(Container)
+	c.templates = templates
 	c.initDatabase()
 	return c
 }
@@ -22,7 +25,7 @@ func (c *Container) initDatabase() {
 }
 
 func (c *Container) welcomeHandler(writer http.ResponseWriter, request *http.Request) {
-	templates["welcome"].Execute(writer, nil)
+	c.templates["welcome"].Execute(writer, nil)
 }
 
 type Guest struct {
@@ -71,17 +74,16 @@ func (c *Container) listHandler(writer http.ResponseWriter, request *http.Reques
 		})
 	}
 
-	err = templates["list"].Execute(writer, party)
+	err = c.templates["list"].Execute(writer, party)
 	if err != nil {
 		log.Println(err)
 	}
-	//templates["list"].Execute(writer, party)
-	//templates["list"].Execute(writer, responses)
+
 }
 
 func (c *Container) formHandler(writer http.ResponseWriter, request *http.Request) {
 	if request.Method == http.MethodGet {
-		templates["form"].Execute(writer, formData{
+		c.templates["form"].Execute(writer, formData{
 			Party: &Party{}, Errors: []string{},
 		})
 	} else if request.Method == http.MethodPost {
@@ -107,15 +109,15 @@ func (c *Container) formHandler(writer http.ResponseWriter, request *http.Reques
 			errors = append(errors, "Пожалуйста введите Ваш телефон")
 		}
 		if len(errors) > 0 {
-			templates["form"].Execute(writer, formData{
+			c.templates["form"].Execute(writer, formData{
 				Party: &responseData, Errors: errors,
 			})
 		} else {
 			responses = append(responses, &responseData)
 			if responseData.WillAttend {
-				templates["thanks"].Execute(writer, responseData.Name)
+				c.templates["thanks"].Execute(writer, responseData.Name)
 			} else {
-				templates["sorry"].Execute(writer, responseData.Name)
+				c.templates["sorry"].Execute(writer, responseData.Name)
 			}
 		}
 	}
